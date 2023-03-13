@@ -34,7 +34,6 @@ import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 
 import org.w3c.dom.Element;
-import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.w3c.dom.Text;
@@ -42,10 +41,7 @@ import org.xml.sax.SAXException;
 
 import opennlp.tools.util.InvalidFormatException;
 import opennlp.tools.util.XmlUtil;
-import opennlp.tools.util.ext.ExtensionLoader;
 import opennlp.tools.util.model.ArtifactSerializer;
-import opennlp.tools.util.model.DictionarySerializer;
-import opennlp.tools.util.model.POSModelSerializer;
 
 /**
  * Creates a set of feature generators based on a provided XML descriptor.
@@ -93,28 +89,6 @@ import opennlp.tools.util.model.POSModelSerializer;
  * {@link AggregatedFeatureGenerator} which is then returned.
  */
 public class GeneratorFactory {
-
-  /**
-   * The {@link XmlFeatureGeneratorFactory} is responsible to construct
-   * an {@link AdaptiveFeatureGenerator} from an given XML {@link Element}
-   * which contains all necessary configuration if any.
-   */
-  @Deprecated // TODO: (OPENNLP-1174) just remove when back-compat is no longer needed
-  interface XmlFeatureGeneratorFactory {
-
-    /**
-     * Creates an {@link AdaptiveFeatureGenerator} from a the describing
-     * XML element.
-     *
-     * @param generatorElement the element which contains the configuration
-     * @param resourceManager the resource manager which could be used
-     *     to access referenced resources
-     *
-     * @return the configured {@link AdaptiveFeatureGenerator}
-     */
-    AdaptiveFeatureGenerator create(Element generatorElement,
-        FeatureGeneratorResourceProvider resourceManager) throws InvalidFormatException;
-  }
 
   public static abstract class AbstractXmlFeatureGeneratorFactory {
 
@@ -356,149 +330,6 @@ public class GeneratorFactory {
     public abstract AdaptiveFeatureGenerator create() throws InvalidFormatException;
   }
 
-  // TODO: We have to support custom resources here. How does it work ?!
-  // Attributes get into a Map<String, String> properties
-
-  // How can serialization be supported ?!
-  // The model is loaded, and the manifest should contain all serializer classes registered for the
-  // resources by name.
-  // When training, the descriptor could be consulted first to register the serializers, and afterwards
-  // they are stored in the model.
-
-  // TODO: (OPENNLP-1174) just remove this class when back-compat is no longer needed
-  static class CustomFeatureGeneratorFactory implements XmlFeatureGeneratorFactory {
-
-    public AdaptiveFeatureGenerator create(Element generatorElement,
-        FeatureGeneratorResourceProvider resourceManager) throws InvalidFormatException {
-
-      String featureGeneratorClassName = generatorElement.getAttribute("class");
-
-      AdaptiveFeatureGenerator generator =
-          ExtensionLoader.instantiateExtension(AdaptiveFeatureGenerator.class, featureGeneratorClassName);
-
-      if (generator instanceof CustomFeatureGenerator) {
-
-        CustomFeatureGenerator customGenerator = (CustomFeatureGenerator) generator;
-
-        Map<String, String> properties = new HashMap<>();
-
-        NamedNodeMap attributes = generatorElement.getAttributes();
-
-        for (int i = 0; i < attributes.getLength(); i++) {
-          Node attribute = attributes.item(i);
-          if (!"class".equals(attribute.getNodeName())) {
-            properties.put(attribute.getNodeName(), attribute.getNodeValue());
-          }
-        }
-
-        if (resourceManager != null) {
-          customGenerator.init(properties, resourceManager);
-        }
-      }
-
-      return generator;
-    }
-
-    static void register(Map<String, XmlFeatureGeneratorFactory> factoryMap) {
-      factoryMap.put("custom", new CustomFeatureGeneratorFactory());
-    }
-  }
-
-  // TODO: (OPENNLP-1174) just remove when back-compat is no longer needed
-  private final static Map<String, XmlFeatureGeneratorFactory> factories = new HashMap<>();
-
-  // TODO: (OPENNLP-1174) just remove when back-compat is no longer needed
-  static {
-    AggregatedFeatureGeneratorFactory.register(factories);
-    CachedFeatureGeneratorFactory.register(factories);
-    CharacterNgramFeatureGeneratorFactory.register(factories);
-    DefinitionFeatureGeneratorFactory.register(factories);
-    DictionaryFeatureGeneratorFactory.register(factories);
-    DocumentBeginFeatureGeneratorFactory.register(factories);
-    PreviousMapFeatureGeneratorFactory.register(factories);
-    SentenceFeatureGeneratorFactory.register(factories);
-    TokenClassFeatureGeneratorFactory.register(factories);
-    TokenFeatureGeneratorFactory.register(factories);
-    BigramNameFeatureGeneratorFactory.register(factories);
-    TokenPatternFeatureGeneratorFactory.register(factories);
-    PosTaggerFeatureGeneratorFactory.register(factories);
-    PrefixFeatureGeneratorFactory.register(factories);
-    SuffixFeatureGeneratorFactory.register(factories);
-    WindowFeatureGeneratorFactory.register(factories);
-    WordClusterFeatureGeneratorFactory.register(factories);
-    BrownClusterTokenFeatureGeneratorFactory.register(factories);
-    BrownClusterTokenClassFeatureGeneratorFactory.register(factories);
-    BrownClusterBigramFeatureGeneratorFactory.register(factories);
-    CustomFeatureGeneratorFactory.register(factories);
-    POSTaggerNameFeatureGeneratorFactory.register(factories);
-  }
-
-  /**
-   * Creates a {@link AdaptiveFeatureGenerator} for the provided element.
-   * To accomplish this it looks up the corresponding factory by the
-   * element tag name. The factory is then responsible for the creation
-   * of the generator from the element.
-   *
-   * @param generatorElement
-   * @param resourceManager
-   *
-   * @return
-   */
-  @Deprecated   // TODO: (OPENNLP-1174) remove back-compat support when it is unnecessary
-  static AdaptiveFeatureGenerator createGenerator(Element generatorElement,
-      FeatureGeneratorResourceProvider resourceManager) throws InvalidFormatException {
-
-    String elementName = generatorElement.getTagName();
-
-    // check it is new format?
-    if (elementName.equals("featureGenerators")) {
-
-      List<AdaptiveFeatureGenerator> generators = new ArrayList<>();
-      NodeList childNodes = generatorElement.getChildNodes();
-      for (int i = 0; i < childNodes.getLength(); i++) {
-        Node childNode = childNodes.item(i);
-        if (childNode instanceof Element) {
-          Element elem = (Element)childNode;
-          String type = elem.getTagName();
-          if (type.equals("generator")) {
-            generators.add(buildGenerator(elem, resourceManager));
-          }
-          else
-            throw new InvalidFormatException("Unexpected element: " + elementName);
-        }
-      }
-
-      AdaptiveFeatureGenerator featureGenerator = null;
-      if (generators.size() == 1)
-        featureGenerator = generators.get(0);
-      else if (generators.size() > 1)
-        featureGenerator = new AggregatedFeatureGenerator(generators.toArray(
-                new AdaptiveFeatureGenerator[0]));
-      else
-        throw new InvalidFormatException("featureGenerators must have one or more generators");
-
-      // disallow manually specifying CachedFeatureGenerator
-      if (featureGenerator instanceof CachedFeatureGenerator)
-        throw new InvalidFormatException("CachedFeatureGeneratorFactory cannot be specified manually." +
-          "Use cache=\"true\" attribute in featureGenerators element instead.");
-
-      // check cache usage
-      if (Boolean.parseBoolean(generatorElement.getAttribute("cache")))
-        return new CachedFeatureGenerator(featureGenerator);
-      else
-        return featureGenerator;
-    }
-    else {
-      // support classic format
-      XmlFeatureGeneratorFactory generatorFactory = factories.get(elementName);
-      if (generatorFactory != null) {
-        return generatorFactory.create(generatorElement, resourceManager);
-      }
-      else
-        throw new InvalidFormatException("Unexpected element: " + elementName);
-    }
-  }
-
   static Element getFirstChild(Element elem) {
     NodeList nodes = elem.getChildNodes();
     for (int i = 0; i < nodes.getLength(); i++) {
@@ -523,7 +354,7 @@ public class GeneratorFactory {
   static AdaptiveFeatureGenerator buildGenerator(Element generatorElement,
              FeatureGeneratorResourceProvider resourceManager) throws InvalidFormatException {
     String className = generatorElement.getAttribute("class");
-    if (className == null) {
+    if (className == null || className.trim().isEmpty()) {
       throw new InvalidFormatException("generator must have class attribute");
     }
     else {
@@ -585,8 +416,7 @@ public class GeneratorFactory {
 
     Element generatorElement = xmlDescriptorDOM.getDocumentElement();
 
-    // TODO: (OPENNLP-1174) use #buildGenerator() after back-compat support is gone
-    return createGenerator(generatorElement, resourceManager);
+    return buildGenerator(generatorElement, resourceManager);
   }
 
   public static Map<String, ArtifactSerializer<?>> extractArtifactSerializerMappings(
@@ -612,7 +442,7 @@ public class GeneratorFactory {
       return mapping;
     }
     else {
-      return extractArtifactSerializerMappingsClassicFormat(element);
+      throw new InvalidFormatException("Given input is not in new format!");
     }
   }
 
@@ -648,87 +478,6 @@ public class GeneratorFactory {
         }
       }
     }
-  }
-
-  @Deprecated   // TODO: (OPENNLP-1174) remove back-compat support when it is unnecessary
-  static Map<String, ArtifactSerializer<?>> extractArtifactSerializerMappingsClassicFormat(
-      Element elem) throws IOException {
-    Map<String, ArtifactSerializer<?>> mapping = new HashMap<>();
-
-    XPath xPath = XPathFactory.newInstance().newXPath();
-
-    NodeList customElements;
-    try {
-      XPathExpression exp = xPath.compile("//custom");
-      customElements = (NodeList) exp.evaluate(elem, XPathConstants.NODESET);
-    } catch (XPathExpressionException e) {
-      throw new IllegalStateException("The hard coded XPath expression should always be valid!");
-    }
-
-    for (int i = 0; i < customElements.getLength(); i++) {
-      if (customElements.item(i) instanceof Element) {
-        Element customElement = (Element) customElements.item(i);
-
-        // Note: The resource provider is not available at that point, to provide
-        // resources they need to be loaded first!
-        AdaptiveFeatureGenerator generator = createGenerator(customElement, null);
-
-        if (generator instanceof ArtifactToSerializerMapper) {
-          ArtifactToSerializerMapper mapper = (ArtifactToSerializerMapper) generator;
-          mapping.putAll(mapper.getArtifactSerializerMapping());
-        }
-      }
-    }
-
-    NodeList allElements;
-    try {
-      XPathExpression exp = xPath.compile("//*");
-      allElements = (NodeList) exp.evaluate(elem, XPathConstants.NODESET);
-    } catch (XPathExpressionException e) {
-      throw new IllegalStateException("The hard coded XPath expression should always be valid!");
-    }
-
-    for (int i = 0; i < allElements.getLength(); i++) {
-      if (allElements.item(i) instanceof Element) {
-        Element xmlElement = (Element) allElements.item(i);
-
-        String dictName = xmlElement.getAttribute("dict");
-        if (dictName != null) {
-
-          switch (xmlElement.getTagName()) {
-            case "wordcluster":
-              mapping.put(dictName, new WordClusterDictionary.WordClusterDictionarySerializer());
-              break;
-
-            case "brownclustertoken":
-              mapping.put(dictName, new BrownCluster.BrownClusterSerializer());
-              break;
-
-            case "brownclustertokenclass"://, ;
-              mapping.put(dictName, new BrownCluster.BrownClusterSerializer());
-              break;
-
-            case "brownclusterbigram": //, ;
-              mapping.put(dictName, new BrownCluster.BrownClusterSerializer());
-              break;
-
-            case "dictionary":
-              mapping.put(dictName, new DictionarySerializer());
-              break;
-          }
-        }
-
-        String modelName = xmlElement.getAttribute("model");
-        if (modelName != null) {
-
-          if ("tokenpos".equals(xmlElement.getTagName())) {
-            mapping.put(modelName, new POSModelSerializer());
-          }
-        }
-      }
-    }
-
-    return mapping;
   }
 
   /**

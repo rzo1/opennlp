@@ -20,8 +20,6 @@ package opennlp.tools.util.featuregen;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.w3c.dom.Element;
-
 import opennlp.tools.postag.POSModel;
 import opennlp.tools.util.InvalidFormatException;
 import opennlp.tools.util.model.ArtifactSerializer;
@@ -31,29 +29,10 @@ import opennlp.tools.util.model.POSModelSerializer;
  * @see POSTaggerNameFeatureGenerator
  */
 public class POSTaggerNameFeatureGeneratorFactory
-    extends GeneratorFactory.AbstractXmlFeatureGeneratorFactory
-    implements GeneratorFactory.XmlFeatureGeneratorFactory {
+    extends GeneratorFactory.AbstractXmlFeatureGeneratorFactory {
 
   public POSTaggerNameFeatureGeneratorFactory() {
     super();
-  }
-
-  @Deprecated // TODO: (OPENNLP-1174) just remove when back-compat is no longer needed
-  public AdaptiveFeatureGenerator create(Element generatorElement,
-             FeatureGeneratorResourceProvider resourceManager)
-      throws InvalidFormatException {
-
-    String modelResourceKey = generatorElement.getAttribute("model");
-
-    POSModel model = (POSModel)resourceManager.getResource(modelResourceKey);
-
-    return new POSTaggerNameFeatureGenerator(model);
-
-  }
-
-  @Deprecated // TODO: (OPENNLP-1174) just remove when back-compat is no longer needed
-  static void register(Map<String, GeneratorFactory.XmlFeatureGeneratorFactory> factoryMap) {
-    factoryMap.put("tokenpos", new POSTaggerNameFeatureGeneratorFactory());
   }
 
   @Override
