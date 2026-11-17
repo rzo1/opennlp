@@ -62,6 +62,20 @@ public final class ResourceLimits {
   public static final int MAX_MATRIX_CELLS =
       initLimit(MAX_MATRIX_CELLS_PROPERTY, 134_217_728);
 
+  /**
+   * System property for overriding {@link #MAX_COMPRESSION_RATIO}.
+   * Set at JVM startup, e.g. {@code -Dopennlp.max.compression.ratio=200}.
+   * Falls back to {@code 100} if absent or invalid.
+   */
+  public static final String MAX_COMPRESSION_RATIO_PROPERTY = "opennlp.max.compression.ratio";
+
+  /**
+   * Upper bound on the ratio between the inflated and the compressed size of a model
+   * package. Published models stay well below 10:1.
+   * Configurable via {@link #MAX_COMPRESSION_RATIO_PROPERTY}.
+   */
+  public static final int MAX_COMPRESSION_RATIO = initLimit(MAX_COMPRESSION_RATIO_PROPERTY, 100);
+
   private ResourceLimits() {
   }
 
